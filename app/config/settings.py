@@ -4,7 +4,7 @@ import os
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql://postgres:!@Ar20417b1@db.srpuwkcieefgslryedkb.supabase.co:5432/postgres"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:!@Ar20417b1@db.srpuwkcieefgslryedkb.supabase.co:5432/postgres"
     
     # Redis
     REDIS_URL: str = "rediss://default:gQAAAAAAAYvKAAIocDEwNDU1YWNlNTBkZGI0MTgyYWVhYjIyMGE5NWY1ZmNjMnAxMTAxMzIy@welcome-fowl-101322.upstash.io:6379"
