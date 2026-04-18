@@ -132,8 +132,8 @@ class CardLog(Base):
     employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"))
     
     action = Column(String, nullable=False)  # 操作描述
-    from_status = Column("Enum(CardStatus)", SQLEnum(CardStatus))
-    to_status = Column("Enum(CardStatus)", SQLEnum(CardStatus))
+    from_status = Column(SQLEnum(CardStatus))
+    to_status = Column(SQLEnum(CardStatus))
     
     details = Column(JSONB, default=dict)  # 詳細信息
     created_at = Column(DateTime, default=datetime.utcnow)
