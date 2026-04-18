@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     TEAMS_APP_PASSWORD: Optional[str] = None
     
     # Security
-    SECRET_KEY: str = "PQxuswCe_b-HVILF941Dl61iKyxu7CczTg-UYcrO2Lk"
+    SECRET_KEY: str = "qun-69LBNBOQNUweKEX3_aEEx1aXt9YeCIGDt7V_WBE"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
