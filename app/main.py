@@ -14,12 +14,12 @@ import redis
 import json
 
 # 導入模型
-from app.models.base import Base, get_db_engine, create_tables, Merchant, Card, CardStatus
-from app.api.v1 import admin, merchant, client
+from .models.base import Base, get_db_engine, create_tables, Merchant, Card, CardStatus
+from .api.v1 import admin, merchant, client
 
 # 導入服務
-from app.services.card_service import CardService
-from app.services.financial_service import FinancialService
+from .services.card_service import CardService
+from .services.financial_service import FinancialService
 
 app = FastAPI(
     title="StarLink Card Platform API",
@@ -47,8 +47,7 @@ def notify_manager(message: str, level: str = "info"):
         print(f"Failed to store notification: {e}")
 
 # Make notify_manager available globally
-import app.models.base
-
+from .models.base import notify_manager
 # === Render.com 啟動修復 ===
 # 檢查必要環境變量
 def check_env():
@@ -139,7 +138,7 @@ def initialize_database():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Update global notify_manager function
-app.models.base.notify_manager = notify_manager
+notify_manager = notify_manager
 
 @app.on_event("startup")
 async def startup_event():
