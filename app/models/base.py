@@ -1,9 +1,10 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Text, Numeric
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Text, Numeric, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm relationship
+from sqlalchemy.orm import sessionmaker, relationship
 import enum
 from datetime import datetime
 import uuid
+import os
 
 Base = declarative_base()
 
@@ -85,3 +86,26 @@ class FinancialTransaction(Base):
 # For Alembic migrations
 def get_tables():
     return [Merchant.__table__, StarLinkCard.__table__, FinancialTransaction.__table__]
+
+def get_db_engine():
+    """Create SQLAlchemy engine with Render.com compatibility"""
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable is not set")
+    
+    # Render.com uses postgres:// but SQLAlchemy 2.0+ requires postgresql://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    # Add SSL mode for Supabase/Render compatibility
+    engine = create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"sslmode": "require"}
+    )
+    return engine
+
+def create_tables(engine):
+    """Create all tables"""
+    Base.metadata.create_all(bind=engine)
