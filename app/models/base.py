@@ -13,22 +13,44 @@ def generate_uuid():
 
 # Enums
 class CardStateEnum(str, enum.Enum):
-    ISSUED = "issued"          # A商家發行
-    ALLOCATED = "allocated"    # 已分配給B商家
-    REDEEMED = "redeemed"      # B商家兌換
-    SETTLED = "settled"        # 平台結算
-    EXPIRED = "expired"        # 過期
-    CANCELLED = "cancelled"    # 取消
-    REFUNDED = "refunded"      # 退款
-    DISPUTED = "disputed"      # 爭議
+    ISSUED = "issued" # A 商家發行
+    ALLOCATED = "allocated" # 已分配給 B 商家
+    REDEEMED = "redeemed" # B 商家兌換
+    SETTLED = "settled" # 平台結算
+    EXPIRED = "expired" # 過期
+    CANCELLED = "cancelled" # 取消
+    REFUNDED = "refunded" # 退款
+    DISPUTED = "disputed" # 爭議
 
 class TransactionTypeEnum(str, enum.Enum):
-    DEPOSIT_A = "deposit_a"        # A商家付2%給平台
-    DEPOSIT_B = "deposit_b"        # B商家付2%給平台
-    BALANCE_PAYABLE_A = "balance_payable_a"  # 平台付98%給A商家
-    BALANCE_PAYABLE_B = "balance_payable_b"  # 平台付98%給B商家
+    DEPOSIT_A = "deposit_a" # A 商家付 2% 給平台
+    DEPOSIT_B = "deposit_b" # B 商家付 2% 給平台
+    BALANCE_PAYABLE_A = "balance_payable_a" # 平台付 98% 給 A 商家
+    BALANCE_PAYABLE_B = "balance_payable_b" # 平台付 98% 給 B 商家
+
+class MerchantType(str, enum.Enum):
+    TYPE_A = "type_a"  # 需要新客的商家
+    TYPE_B = "type_b"  # 客戶過剩的商家
+
+class MerchantStatus(str, enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
 
 # Tables
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    email = Column(String(200), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    merchant_id = Column(String, ForeignKey("merchants.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Merchant(Base):
     __tablename__ = "merchants"
     

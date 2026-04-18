@@ -1,13 +1,29 @@
 # 匯出所有模型
-from app.models.models import User, Merchant, StarLinkCard, Transaction, TeamsMessage
-from app.models.enums import MerchantType, MerchantStatus
+from app.models.base import (
+    Base,
+    User,
+    Merchant,
+    StarLinkCard,
+    FinancialTransaction as Transaction,
+    CardStateEnum,
+    TransactionTypeEnum,
+    MerchantType,
+    MerchantStatus
+)
+
+# TeamsMessage 暫時不使用，如果未來需要可以添加
+# class TeamsMessage(Base):
+#     __tablename__ = "teams_messages"
+#     ...
 
 __all__ = [
+    "Base",
     "User",
     "Merchant", 
     "StarLinkCard",
     "Transaction",
-    "TeamsMessage",
+    "CardStateEnum",
+    "TransactionTypeEnum",
     "MerchantType",
     "MerchantStatus"
 ]
