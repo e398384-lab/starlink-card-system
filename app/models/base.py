@@ -1,227 +1,87 @@
-
-# StarLink Card System - 完全相容 Render.com 的版本
-# 改進: SSL 連接、連接池、錯誤恢復、日誌記錄
-
-from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Text, Numeric
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, scoped_session
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.pool import NullPool, QueuePool
-import uuid
+from sqlalchemy.orm relationship
+import enum
 from datetime import datetime
-import os
-import logging
-import time
-from typing import Optional
-
-# Enum types
-from enum import Enum
-
-class MerchantRole(str, Enum):
-    A_ISSUER = "A_ISSUER"  # A類商家 - 發行
-    B_DISTRIBUTOR = "B_DISTRIBUTOR"  # B類商家 - 發放
-
-class CardStatus(str, Enum):
-    CREATED = "CREATED"  # 系統發行完成
-    ALLOCATED = "ALLOCATED"  # B類商家接收
-    CLAIMED = "CLAIMED"  # 客戶認領
-    TRANSFER_INIT = "TRANSFER_INIT"  # P2P轉讓發起
-    TRANSFER_ACCEPTED = "TRANSFER_ACCEPTED"  # P2P轉讓完成
-    REDEEMED = "REDEEMED"  # A類商家核銷
-    RETURNED = "RETURNED"  # 退回
-    EXPIRED = "EXPIRED"  # 過期
-
-class TransactionType(str, Enum):
-    DEPOSIT_A = "DEPOSIT_A"  # A類商家支付2%保證金
-    DEPOSIT_B = "DEPOSIT_B"  # B類商家支付2%保證金
-    BALANCE_PAYABLE_A = "BALANCE_PAYABLE_A"  # A類商家應收98%
-    BALANCE_PAYABLE_B = "BALANCE_PAYABLE_B"  # B類商家應收98%
-    SETTLED = "SETTLED"  # 已結算
+import uuid
 
 Base = declarative_base()
 
+def generate_uuid():
+    return str(uuid.uuid4())
+
+# Enums
+class CardStateEnum(str, enum.Enum):
+    ISSUED = "issued"          # A商家發行
+    ALLOCATED = "allocated"    # 已分配給B商家
+    REDEEMED = "redeemed"      # B商家兌換
+    SETTLED = "settled"        # 平台結算
+    EXPIRED = "expired"        # 過期
+    CANCELLED = "cancelled"    # 取消
+    REFUNDED = "refunded"      # 退款
+    DISPUTED = "disputed"      # 爭議
+
+class TransactionTypeEnum(str, enum.Enum):
+    DEPOSIT_A = "deposit_a"        # A商家付2%給平台
+    DEPOSIT_B = "deposit_b"        # B商家付2%給平台
+    BALANCE_PAYABLE_A = "balance_payable_a"  # 平台付98%給A商家
+    BALANCE_PAYABLE_B = "balance_payable_b"  # 平台付98%給B商家
+
+# Tables
 class Merchant(Base):
     __tablename__ = "merchants"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=False)  # 商家名稱
-    phone = Column(String, unique=True, nullable=False)  # 聯繫電話
-    role = Column("Enum(MerchantRole)", SQLEnum(MerchantRole), nullable=False)  # A或B類型
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # 員工上限
-    max_employees = Column(Integer, default=5)
-    
-    # JSONB存儲額外信息（注意：metadata是保留字，改用meta_info）
-    meta_info = Column(JSONB, default=dict)
-    
-    # 關聯
-    employees = relationship("Employee", back_populates="merchant")
-    issued_cards = relationship("Card", foreign_keys="[Card.issuer_id]", back_populates="issuer")
-    received_cards = relationship("Card", foreign_keys="[Card.current_holder_id]", back_populates="current_holder")
-
-class Employee(Base):
-    __tablename__ = "employees"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    merchant_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)
-    name = Column(String, nullable=False)
-    phone = Column(String, unique=True, nullable=False)  # 用作登錄帳號
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String(200), nullable=False)
+    type = Column(String(20), nullable=False)  # 'A' or 'B'
+    contact_person = Column(String(100))
+    phone = Column(String(50))
+    email = Column(String(200))
+    address = Column(Text)
+    website = Column(String(500))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # 關聯
-    merchant = relationship("Merchant", back_populates="employees")
-
-class Card(Base):
-    __tablename__ = "cards"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    serial_number = Column(String, unique=True, nullable=False)  # 序列號
-    
-    issuer_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)  # A類發行商家
-    current_holder_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"))  # 當前持有者
-    
-    title = Column(String, nullable=False)  # 標題（如"100元餐券"）
-    face_value = Column(Float, nullable=False)  # 面值
-    status = Column("Enum(CardStatus)", SQLEnum(CardStatus), default=CardStatus.CREATED)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    allocated_at = Column(DateTime)  # 配發給B的時間
-    claimed_at = Column(DateTime)  # 客戶認領時間
-    redeemed_at = Column(DateTime)  # 核銷時間
-    transferred_at = Column(DateTime)  # 轉讓時間
-    expired_at = Column(DateTime)  # 過期時間
-    
-    # JSONB存儲額外信息
-    meta_info = Column(JSONB, default=dict)
 
-# 關聯
-    issuer = relationship("Merchant", foreign_keys=[issuer_id], back_populates="issued_cards")
-    current_holder = relationship("Merchant", foreign_keys=[current_holder_id], back_populates="received_cards")
-    logs = relationship("CardLog", back_populates="card")
-
-class CardDetail(Base):
-    __tablename__ = "card_details"
+class StarLinkCard(Base):
+    __tablename__ = "starlink_cards"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    card_id = Column(UUID(as_uuid=True), ForeignKey("cards.id"), nullable=False, unique=True)
-    customer_phone = Column(String)  # 客戶電話（認領後填寫）
-    holder_employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"))  # 經手員工
-    transfer_token = Column(String, unique=True)  # 轉讓令牌（48小時有效期）
-    transfer_expires_at = Column(DateTime)
-    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    card_number = Column(String(50), unique=True, nullable=False, index=True)
+    face_value = Column(Numeric(10, 2), nullable=False)  # 票面金額
+    issued_by_merchant_id = Column(String, ForeignKey("merchants.id"), nullable=False)
+    allocated_to_merchant_id = Column(String, ForeignKey("merchants.id"), nullable=True)
+    state = Column(SQLEnum(CardStateEnum), default=CardStateEnum.ISSUED, nullable=False)
+    issued_at = Column(DateTime, default=datetime.utcnow)
+    allocated_at = Column(DateTime, nullable=True)
+    redeemed_at = Column(DateTime, nullable=True)
+    settled_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # 關聯
-    card = relationship("Card", back_populates="current_detail")
-    holder_employee = relationship("Employee")
-
-# Add reverse relationship
-Card.current_detail = relationship("CardDetail", uselist=False, back_populates="card")
-
-# Database engine and session management
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-# Global engine instance
-_engine = None
-
-
-def get_db_engine():
-    """Get database engine with connection pooling for Render.com"""
-    global _engine
-    if _engine is None:
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            raise ValueError("DATABASE_URL environment variable is required")
-        
-        # Handle Render.com PostgreSQL URL format
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql://", 1)
-        
-        # Configure engine with pooling for Render.com
-        engine_options = {
-            "pool_pre_ping": True,  # Check connection before use
-            "pool_recycle": 300,    # Recycle connections after 5 minutes
-            "echo": False,          # Set to True for SQL logging
-        }
-        
-        # Handle SSL for production
-        if "render.com" in database_url:
-            engine_options["connect_args"] = {"sslmode": "require"}
-        
-        _engine = create_engine(database_url, **engine_options)
-    
-    return _engine
-
-
-def create_tables():
-    """Create all database tables"""
-    engine = get_db_engine()
-    Base.metadata.create_all(bind=engine)
-
-
-# Database session dependency
-def get_db():
-    """Get database session"""
-    db = None
-    try:
-        engine = get_db_engine()
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        db = SessionLocal()
-        yield db
-    finally:
-        if db:
-            db.close()
-
-class CardLog(Base):
-    __tablename__ = "card_logs"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    card_id = Column(UUID(as_uuid=True), ForeignKey("cards.id"), nullable=False)
-    merchant_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"))
-    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"))
-    
-    action = Column(String, nullable=False)  # 操作描述
-    from_status = Column(SQLEnum(CardStatus))
-    to_status = Column(SQLEnum(CardStatus))
-    
-    details = Column(JSONB, default=dict)  # 詳細信息
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # 關聯
-    card = relationship("Card", back_populates="logs")
-    merchant = relationship("Merchant")
-    employee = relationship("Employee")
+    # Relationships
+    issued_by = relationship("Merchant", foreign_keys=[issued_by_merchant_id])
+    allocated_to = relationship("Merchant", foreign_keys=[allocated_to_merchant_id])
 
 class FinancialTransaction(Base):
     __tablename__ = "financial_transactions"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    card_id = Column(UUID(as_uuid=True), ForeignKey("cards.id"), nullable=False)
-    merchant_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)
-    
-    transaction_type = Column("Enum(TransactionType)", SQLEnum(TransactionType), nullable=False)
-    amount = Column(Float, nullable=False)
-    currency = Column(String, default="TWD")
-    
-    # 雙重記帳
-    debit_account = Column(String)  # 借方帳戶
-    credit_account = Column(String)  # 貸方帳戶
-    
-    description = Column(String)
-    reference_id = Column(String)  # 外部參考ID
-    
-    is_settled = Column(Boolean, default=False)  # 是否已結算
-    settled_at = Column(DateTime)
-    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    card_id = Column(String, ForeignKey("starlink_cards.id"), nullable=False)
+    transaction_type = Column(SQLEnum(TransactionTypeEnum), nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
+    from_merchant_id = Column(String, ForeignKey("merchants.id"), nullable=True)
+    to_merchant_id = Column(String, ForeignKey("merchants.id"), nullable=True)
+    description = Column(Text)
+    transaction_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # 關聯
-    card = relationship("Card")
-    merchant = relationship("Merchant")
+    # Relationships
+    card = relationship("StarLinkCard")
+    from_merchant = relationship("Merchant", foreign_keys=[from_merchant_id])
+    to_merchant = relationship("Merchant", foreign_keys=[to_merchant_id])
+
+# For Alembic migrations
+def get_tables():
+    return [Merchant.__table__, StarLinkCard.__table__, FinancialTransaction.__table__]
