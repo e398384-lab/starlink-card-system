@@ -55,8 +55,8 @@ class Merchant(Base):
     # 員工上限
     max_employees = Column(Integer, default=5)
     
-    # JSONB存儲額外信息
-    metadata = Column(JSONB, default=dict)
+    # JSONB存儲額外信息（注意：metadata是保留字，改用meta_info）
+    meta_info = Column(JSONB, default=dict)
     
     # 關聯
     employees = relationship("Employee", back_populates="merchant")
@@ -97,8 +97,8 @@ class Card(Base):
     transferred_at = Column(DateTime)  # 轉讓時間
     expired_at = Column(DateTime)  # 過期時間
     
-    # JSONB存儲
-    metadata = Column(JSONB, default=dict)
+    # JSONB存儲額外信息
+    meta_info = Column(JSONB, default=dict)
     
     # 關聯
     issuer = relationship("Merchant", foreign_keys=[issuer_id], back_populates="issued_cards")
