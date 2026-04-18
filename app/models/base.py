@@ -40,7 +40,7 @@ class Merchant(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)  # 商家名稱
     phone = Column(String, unique=True, nullable=False)  # 聯繫電話
-    role = Column(SQLEnum(MerchantRole), nullable=False)  # A或B類型
+    role = Column(String, nullable=False, default="B_MERCHANT") # A或B類型
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
