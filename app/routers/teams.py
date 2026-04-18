@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import TeamsMessage
+from app.models import TeamsMessage, User, Merchant, StarLinkCard, Transaction
 from app.schemas import TeamsMessageResponse, MessageResponse
 from app.auth import get_current_user
 from app.config.settings import settings

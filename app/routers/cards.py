@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import StarLinkCard, Transaction, Merchant
+from app.models import StarLinkCard, Transaction, Merchant, User
 from app.schemas import (
     StarLinkCardIssue, StarLinkCardRedeem,
     StarLinkCardResponse, TransactionResponse, TransactionCreate,
