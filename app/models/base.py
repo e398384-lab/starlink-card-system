@@ -1,14 +1,25 @@
+# StarLink Card System - 完全相容 Render.com 的版本
+# 改進: SSL 連接、連接池、錯誤恢復、日誌記錄
+
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
+<<<<<<< HEAD
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
+=======
+from sqlalchemy.orm import sessionmaker, relationship, scoped_session
+>>>>>>> 157245f (feat: Render.com compatible base.py with SSL pooling and logging)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.pool import NullPool, QueuePool
 import uuid
 from datetime import datetime
 import os
-from sqlalchemy import Enum
+import logging
+import time
+from typing import Optional
 
-# Import notification - will be created in main.py
-# from app.main import notify_manager
+# 配置日誌
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -96,7 +107,6 @@ class Card(Base):
     issuer = relationship("Merchant", foreign_keys=[issuer_id], back_populates="issued_cards")
     current_holder = relationship("Merchant", foreign_keys=[current_holder_id], back_populates="received_cards")
     logs = relationship("CardLog", back_populates="card")
-    # current_detail會在CardDetail中反向關聯
 
 class CardDetail(Base):
     __tablename__ = "card_details"
@@ -165,21 +175,155 @@ class FinancialTransaction(Base):
     card = relationship("Card")
     merchant = relationship("Merchant")
 
-# Database setup function
-def get_db_engine():
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL environment variable is required")
+# Database setup functions for Render.com
+class DatabaseManager:
+    """
+    專為 Render.com 優化的資料庫管理器
+    - SSL/TLS 連接
+    - 連接池管理
+    - 自動重連
+    - 詳細日誌
+    """
     
-    engine = create_engine(DATABASE_URL)
-    return engine
+    def __init__(self):
+        self.engine = None
+        self.SessionLocal = None
+        self._init_engine()
+    
+    def _init_engine(self):
+        """初始化資料庫引擎，支援 Render 環境"""
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        
+        if not DATABASE_URL:
+            raise ValueError("❌ DATABASE_URL environment variable is required")
+        
+        logger.info(f"📊 Initiating database connection...")
+        logger.info(f"🔗 URL: {DATABASE_URL.split('@')[1].split('/')[0]}  ")
+        
+        # Render.com PostgreSQL 需要特殊配置
+        # 1. SSL 連接必須啟用
+        # 2. 連接池大小限制（免費層）
+        # 3. 連接回收防止閒置超時
+        
+        # 檢查是否需要 SSL
+        is_ssl = DATABASE_URL.startswith("postgresql://")
+        
+        if is_ssl:
+            # Render.com 提供的 URL 需要 SSL
+            connect_args = {
+                "sslmode": "require",  # Render PostgreSQL 要求 SSL
+                "connect_timeout": 10,  # 10秒連接超時
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            }
+        else:
+            connect_args = {}
+        
+        # 連接池配置 - 針對 Render 免費層優化
+        pool_config = {
+            "poolclass": QueuePool,
+            "pool_size": 5,        # 最大連接數
+            "max_overflow": 10,    # 超出 pool_size 的最大連接
+            "pool_pre_ping": True, # 連接前檢查
+            "pool_recycle": 3600,  # 1小時回收連接（防止閒置超時）
+            "pool_timeout": 30,    # 獲取連接的超時時間
+        }
+        
+        try:
+            self.engine = create_engine(
+                DATABASE_URL,
+                **pool_config,
+                connect_args=connect_args,
+                echo=False,  # 設為 True 可看到所有 SQL 語句
+            )
+            
+            # 測試連接
+            self._test_connection()
+            
+            # 配置 Session
+            self.SessionLocal = sessionmaker(
+                autocommit=False,
+                autoflush=False,
+                bind=self.engine
+            )
+            
+            logger.info("✅ Database engine initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"❌ Database initialization failed: {e}")
+            raise
+    
+    def _test_connection(self):
+        """測試資料庫連接"""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute("SELECT 1")
+                result.fetchone()
+                logger.info("✅ Database connection test passed")
+        except Exception as e:
+            logger.error(f"❌ Database connection test failed: {e}")
+            raise
+    
+    def create_tables(self):
+        """自動創建/更新表結構"""
+        try:
+            logger.info("Creating database tables...")
+            Base.metadata.create_all(bind=self.engine)
+            logger.info("✅ All database tables created/updated successfully!")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to create tables: {e}")
+            raise
+    
+    def drop_tables(self):
+        """刪除所有表（測試用）"""
+        try:
+            logger.warning("Dropping all tables...")
+            Base.metadata.drop_all(bind=self.engine)
+            logger.warning("✅ All tables dropped!")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to drop tables: {e}")
+            raise
+    
+    def get_session(self):
+        """獲取新的資料庫會話"""
+        return scoped_session(self.SessionLocal)
+    
+    def cleanup(self):
+        """清理連接資源"""
+        if self.engine:
+            self.engine.dispose()
+            logger.info("Database connections disposed")
 
-def create_tables():
-    engine = get_db_engine()
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
+# 全局 DatabaseManager 實例
+db_manager = DatabaseManager()
 
+<<<<<<< HEAD
 # For notifications - will be imported in main.py
 # def notify_manager(message: str, level: str = "info"):
 #     """Global notification function - placeholder"""
 #     print(f"[{level.upper()}] {message}")
+=======
+# 設計使用便利工廠
+get_engine = db_manager.engine
+create_tables = db_manager.create_tables
+drop_tables = db_manager.drop_tables
+get_session = db_manager.get_session
+
+if __name__ == "__main__":
+    # 用於開發時直接運行
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "create":
+        db_manager.create_tables()
+    elif len(sys.argv) > 1 and sys.argv[1] == "drop":
+        confirm = input("⚠  這將刪除所有數據！確認嗎？(yes/no): ")
+        if confirm.lower() == "yes":
+            db_manager.drop_tables()
+    else:
+        print("用法: python base.py create  # 創建表")
+        print("     python base.py drop     # 刪除表（危險！）")
+>>>>>>> 157245f (feat: Render.com compatible base.py with SSL pooling and logging)
