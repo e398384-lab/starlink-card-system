@@ -34,11 +34,17 @@ app.include_router(teams.router, prefix="/api/v1")
 @app.on_event("startup")
 async def startup_event():
     """應用啟動時執行"""
-    # 創建數據庫表
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✓ 數據庫表已創建")
+    try:
+        # 創建數據庫表
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✓ 數據庫表已創建")
+    except Exception as e:
+        print(f"⚠ 數據庫表創建失敗：{e}")
+        print("⚠ 繼續啟動（表可能已存在）")
+    
     print(f"✓ {settings.APP_NAME} v{settings.APP_VERSION} 已啟動")
+    print(f"✓ 環境：{'Debug' if settings.DEBUG else 'Production'}")
 
 @app.get("/")
 async def root():
