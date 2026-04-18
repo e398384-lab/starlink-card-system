@@ -30,22 +30,22 @@ app = FastAPI(
 
 # Global notification function
 def notify_manager(message: str, level: str = "info"):
- """Global notification function for system events"""
- timestamp = datetime.now().isoformat()
- notification = {
- "timestamp": timestamp,
- "level": level,
- "message": message
- }
- print(f"[⚠️ NOTIFICATION] {json.dumps(notification)}")
- 
- # Store in Redis for Teams Bot to retrieve
- try:
- if hasattr(app.state, 'redis_client') and app.state.redis_client:
- app.state.redis_client.lpush("system:notifications", json.dumps(notification))
- app.state.redis_client.ltrim("system:notifications", 0, 99) # Keep last 100
- except Exception as e:
- print(f"Failed to store notification: {e}")
+    """Global notification function for system events"""
+    timestamp = datetime.now().isoformat()
+    notification = {
+        "timestamp": timestamp,
+        "level": level,
+        "message": message
+    }
+    print(f"[⚠️ NOTIFICATION] {json.dumps(notification)}")
+    
+    # Store in Redis for Teams Bot to retrieve
+    try:
+        if hasattr(app.state, 'redis_client') and app.state.redis_client:
+            app.state.redis_client.lpush("system:notifications", json.dumps(notification))
+            app.state.redis_client.ltrim("system:notifications", 0, 99) # Keep last 100
+    except Exception as e:
+        print(f"Failed to store notification: {e}")
 
 # Make notify_manager available globally
 import app.models.base
