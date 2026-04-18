@@ -3,11 +3,8 @@
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, DateTime, JSON, ForeignKey, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
-<<<<<<< HEAD
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
-=======
 from sqlalchemy.orm import sessionmaker, relationship, scoped_session
->>>>>>> 157245f (feat: Render.com compatible base.py with SSL pooling and logging)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.pool import NullPool, QueuePool
 import uuid
@@ -301,12 +298,10 @@ class DatabaseManager:
 # 全局 DatabaseManager 實例
 db_manager = DatabaseManager()
 
-<<<<<<< HEAD
 # For notifications - will be imported in main.py
 # def notify_manager(message: str, level: str = "info"):
 #     """Global notification function - placeholder"""
 #     print(f"[{level.upper()}] {message}")
-=======
 # 設計使用便利工廠
 get_engine = db_manager.engine
 create_tables = db_manager.create_tables
@@ -326,4 +321,3 @@ if __name__ == "__main__":
     else:
         print("用法: python base.py create  # 創建表")
         print("     python base.py drop     # 刪除表（危險！）")
->>>>>>> 157245f (feat: Render.com compatible base.py with SSL pooling and logging)
