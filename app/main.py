@@ -1,68 +1,65 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import redis
-import os
-from dotenv import load_dotenv
-from app.models.base import get_db_engine, create_tables
+from app.config.settings import settings
+from app.database import Base, engine
+import asyncio
 
-load_dotenv()
+# 導入所有路由
+from app.routers import auth, merchants, cards, teams
 
-app = FastAPI(title="StarLink Card System", version="1.0.0")
+# 創建 FastAPI 應用
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="星鏈卡權益系統 - 連接需要新客的商家與客戶過剩的商家，平台收取 4% 交易費",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
-# CORS middleware
+# 配置 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # 生產環境應限制來源
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Redis connection
-redis_url = os.getenv("REDIS_URL")
-if redis_url:
-    redis_client = redis.from_url(redis_url, decode_responses=True)
-else:
-    redis_client = None
-
-# Include API routers
-from app.api.v1 import admin, merchant
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
-app.include_router(merchant.router, prefix="/api/v1/merchant", tags=["merchant"])
+# 註冊路由
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(merchants.router, prefix="/api/v1")
+app.include_router(cards.router, prefix="/api/v1")
+app.include_router(teams.router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
-    try:
-        engine = get_db_engine()
-        create_tables(engine)
-        print("Database tables created successfully")
-    except Exception as e:
-        print(f"Warning: Could not initialize database: {e}")
+    """應用啟動時執行"""
+    # 創建數據庫表
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✓ 數據庫表已創建")
+    print(f"✓ {settings.APP_NAME} v{settings.APP_VERSION} 已啟動")
 
 @app.get("/")
 async def root():
-    return {"message": "StarLink Card System is running"}
+    """根端點"""
+    return {
+        "name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "status": "running",
+        "docs": "/docs"
+    }
 
 @app.get("/health")
 async def health_check():
-    # Check database connection
-    db_status = "disconnected"
-    try:
-        engine = get_db_engine()
-        # Try to connect
-        with engine.connect() as conn:
-            conn.execute("SELECT 1")
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
-    
-    return {
-        "status": "healthy", 
-        "redis": redis_client is not None,
-        "database": db_status
-    }
+    """健康檢查端點"""
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG
+    )
