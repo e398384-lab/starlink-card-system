@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 # 配置
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:%21@Ar20417b1@db.srpuwkcieefgslryedkb.supabase.co:5432/postgres")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:%21%40Ar20417b1@db.srpuwkcieefgslryedkb.supabase.co:5432/postgres")
 REDIS_URL = os.getenv("REDIS_URL", "rediss://default:gQAAAAAAAYvKAAIocDEwNDU1YWNlNTBkZGI0MTgyYWVhYjIyMGE5NWY1ZmNjMnAxMTAxMzIy@welcome-fowl-101322.upstash.io:6379")
 SECRET_KEY = os.getenv("SECRET_KEY", "starlink-secret-key-2026")
 
