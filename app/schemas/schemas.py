@@ -98,17 +98,23 @@ class StarLinkCardResponse(BaseModel):
         from_attributes = True
 
 class TransactionResponse(BaseModel):
-    id: str
-    card_id: str
-    transaction_type: str
-    amount: float
-    from_merchant_id: Optional[str] = None
-    to_merchant_id: Optional[str] = None
-    description: Optional[str] = None
-    transaction_at: datetime
-    
-    class Config:
-        from_attributes = True
+ id: str
+ card_id: str
+ transaction_type: str
+ amount: float
+ from_merchant_id: Optional[str] = None
+ to_merchant_id: Optional[str] = None
+ description: Optional[str] = None
+ transaction_at: datetime
+ 
+ class Config:
+  from_attributes = True
+
+class TransactionCreate(BaseModel):
+ card_number: str
+ transaction_type: str
+ amount: float = Field(..., gt=0)
+ description: Optional[str] = None
 
 # ========================================
 # 通用 Schema
