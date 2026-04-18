@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models import Merchant, MerchantType, MerchantStatus
 from app.schemas import (
-    MerchantCreate, MerchantUpdate, MerchantResponse,
-    MessageResponse, UserResponse
+ MerchantCreate, MerchantUpdate, MerchantResponse,
+ MessageResponse, UserResponse
 )
 from app.auth import get_current_user, get_current_merchant_user
 from uuid import UUID
