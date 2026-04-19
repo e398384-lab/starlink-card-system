@@ -1,0 +1,8 @@
+node_modules
+.git
+*.md
+*.pyc
+__pycache__
+*.log
+.env.local
+.DS_Store
